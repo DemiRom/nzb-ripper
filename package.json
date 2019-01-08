@@ -1,0 +1,15 @@
+{
+  "name": "nzb_ripper",
+  "version": "1.0.0",
+  "description": "Rips nzbs off other indexing sites",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Demetry Romanowski",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.16.4",
+    "request": "^2.88.0"
+  }
+}
