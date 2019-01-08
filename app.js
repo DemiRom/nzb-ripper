@@ -16,9 +16,7 @@ const CONSOLE_SEARCH_REQ      = "https://api.nzbgeek.info/api?t=search&cat=1000&
 const FROM_PATH = "/var/www/nZEDb/resources/ripper/nzb-ripper/nzbs/*";
 const TO_PATH   = "/var/www/nZEDb/resources/imports/nzbs";
 
-const UPDATE_FIXED = 1200000;
-
-let UPDATE_TIMER = 100; 
+const UPDATE_TIMER = 600000; 
 
 let requests = { 
     links: [
@@ -33,11 +31,14 @@ let requests = {
 
     ]
 }
-//console.log(requests.links);
-setInterval(() => {
-    //HACK
-    UPDATE_TIMER = UPDATE_FIXED; 
 
+function setIntervalAndExecute(fn, t) { 
+    fn();
+    return (setInterval(fn, t));
+}
+
+//console.log(requests.links);
+setIntervalAndExecute(() => {
     console.log("UPDATING: New");
     for(var l = 0; l < requests.links.length; l++)
     {
@@ -93,6 +94,8 @@ setInterval(() => {
     });
 
 }, UPDATE_TIMER);
+
+
 /**
 exec('tar -czvf nzb-dump.tar.gz nzbs', (err, stdout, stderr) => {
     if (err) {
