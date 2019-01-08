@@ -4,15 +4,19 @@ const request  = require('request');
 const fs       = require('fs');
 const { exec } = require('child_process');
 
-const TV_SEARCH_REQ     = "https://api.nzbgeek.info/api?t=tvsearch&cat=5000&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
-const MOVIE_SEARCH_REQ  = "https://api.nzbgeek.info/api?t=movie&cat=2000&group=0&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
-const PC_SEARCH_REQ     = "https://api.nzbgeek.info/api?t=search&cat=4000&group=0&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
+const TV_SEARCH_REQ        = "https://api.nzbgeek.info/api?t=tvsearch&cat=5000&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
+const MOVIE_SEARCH_REQ     = "https://api.nzbgeek.info/api?t=movie&cat=2000&group=0&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
+const PC_SEARCH_REQ        = "https://api.nzbgeek.info/api?t=search&cat=4000&group=0&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
+const ANIME_SEARCH_REQ     = "https://api.nzbgeek.info/api?t=tvsearch&cat=5070&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
+const TV_OFFSET_SEARCH_REQ = "https://api.nzbgeek.info/api?t=tvsearch&cat=5000&limit=200&offset=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
 
 let requests = { 
     links: [
         TV_SEARCH_REQ, 
         MOVIE_SEARCH_REQ,
-        PC_SEARCH_REQ
+        PC_SEARCH_REQ,
+        ANIME_SEARCH_REQ,
+        TV_OFFSET_SEARCH_REQ
     ]
 }
 //console.log(requests.links);
