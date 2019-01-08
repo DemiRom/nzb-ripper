@@ -13,6 +13,8 @@ const BOOK_SEARCH_REQ         = "https://api.nzbgeek.info/api?t=book&cat=7000&gr
 const MOVIE_OFFSET_SEARCH_REQ = "https://api.nzbgeek.info/api?t=movie&cat=2000&group=0&limit=200&offset=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
 const CONSOLE_SEARCH_REQ      = "https://api.nzbgeek.info/api?t=search&cat=1000&group=0&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
 
+const UPDATE_TIMER = 1200000; 
+
 let requests = { 
     links: [
         TV_SEARCH_REQ, 
@@ -27,42 +29,51 @@ let requests = {
     ]
 }
 //console.log(requests.links);
+setInterval(() => {
+    console.log("UPDATING: New");
+    for(var l = 0; l < requests.links.length; l++)
+    {
+        request(requests.links[l], { json: true }, (err, res, body) => {
+            if (err) 
+                return console.log(err); 
+            if (!body.channel.item)
+                return console.log("ERROR: Response was malformed.");
 
-for(var l = 0; l < requests.links.length; l++)
-{
-    request(requests.links[l], { json: true }, (err, res, body) => {
-        if (err) { 
-            return console.log(err); 
-        }
+            console.log("\n\n\n\n\nREQUEST: "+requests.links[l]);
 
-        console.log("\n\n\n\n\nNEXT: "+requests.links[l]);
-
-        if(body.channel.item) {
             let response_item = body.channel.item; 
-        
+
             for(var i = 0; i < response_item.length; i++) 
             {
                 let nzb = response_item[i];
 
-                console.log(nzb.title.replace(/ /g, ""));
-                console.log(nzb.link.replace(/amp;/g, ""));
+                let title = nzb.title.replace(/ /g, "");
+                let link  = nzb.link.replace(/amp;/g, "");
 
-                let file = fs.createWriteStream("nzbs/"+nzb.title.replace(/ /g, "")+".nzb");
-            
-                let request = https.get(nzb.link.replace(/amp;/g, ""), (res) => { 
-                    res.pipe(file);
-                    console.log("Downloaded: " + nzb.title.replace(/ /g, ""));
-                }).on('error', (err) => { 
+                if(!fs.existsSync("nzbs/"+title+".nzb"))
+                {
+                    console.log(title);
+                    console.log(link);
 
-                    console.log("Error Downloading: " + err);  
-                
-                });
-            }
-        }
-        else
-            console.log("Response Error"); 
-    });
-}
+                    let file = fs.createWriteStream("nzbs/"+title+".nzb");
+
+                    let request = https.get(link, (res) => { 
+                        res.pipe(file);
+                        console.log("Downloaded: " + title);
+                    }).on('error', (err) => { 
+                        console.log("Error Downloading: " + err);  
+                    });
+                }
+                else
+                {
+                    console.log("SKIPPING: " + title + ".nzb");
+                    continue;
+                }
+            } 
+        });
+    }
+    
+}, UPDATE_TIMER);
 /**
 exec('tar -czvf nzb-dump.tar.gz nzbs', (err, stdout, stderr) => {
     if (err) {
