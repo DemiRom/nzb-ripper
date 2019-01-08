@@ -13,7 +13,12 @@ const BOOK_SEARCH_REQ         = "https://api.nzbgeek.info/api?t=book&cat=7000&gr
 const MOVIE_OFFSET_SEARCH_REQ = "https://api.nzbgeek.info/api?t=movie&cat=2000&group=0&limit=200&offset=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
 const CONSOLE_SEARCH_REQ      = "https://api.nzbgeek.info/api?t=search&cat=1000&group=0&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
 
-const UPDATE_TIMER = 1200000; 
+const FROM_PATH = "/var/www/nZEDb/resources/ripper/nzb-ripper/nzbs/*";
+const TO_PATH   = "/var/www/nZEDb/resources/imports/nzbs";
+
+const UPDATE_FIXED = 1200000;
+
+let UPDATE_TIMER = 100; 
 
 let requests = { 
     links: [
@@ -30,6 +35,9 @@ let requests = {
 }
 //console.log(requests.links);
 setInterval(() => {
+    //HACK
+    UPDATE_TIMER = UPDATE_FIXED; 
+
     console.log("UPDATING: New");
     for(var l = 0; l < requests.links.length; l++)
     {
@@ -72,7 +80,18 @@ setInterval(() => {
             } 
         });
     }
-    
+
+    //Copy updates to the indexer
+    exec("cp " + FROM_PATH + " " + TO_PATH, (err, stdout, stderr) => { 
+        if(err) { 
+            console.log("ERROR: Couldn't copy shit"); 
+            return; 
+        }
+
+        console.log('stdout: ${stdout}');
+        console.log('stderr: ${stderr}');
+    });
+
 }, UPDATE_TIMER);
 /**
 exec('tar -czvf nzb-dump.tar.gz nzbs', (err, stdout, stderr) => {
