@@ -48,7 +48,7 @@ function setIntervalAndExecute(fn, t) {
  * are used here.
  **/
 function copy_nzbs_to_indexer(){
-    exec(`cp ${config.FROM_PATH} ${config.TO_PATH}`, (err, stdout, stderr) => { 
+    exec(`cp -r ${config.FROM_PATH}/* ${config.TO_PATH}`, (err, stdout, stderr) => { 
         if(err) { 
             console.log(`FATAL ${err}`);
             process.exit();
