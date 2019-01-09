@@ -1,110 +1,295 @@
-const https    = require('https');
-const http     = require('http');
-const request  = require('request'); 
-const fs       = require('fs');
-const { exec } = require('child_process');
+const https     = require('https');
+const http      = require('http');
+const request   = require('request'); 
+const rp = require('request-promise');
+const fs        = require('fs');
+const { exec }  = require('child_process');
+const $         = require('cheerio');
 
-const TV_SEARCH_REQ           = "https://api.nzbgeek.info/api?t=tvsearch&cat=5000&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
-const MOVIE_SEARCH_REQ        = "https://api.nzbgeek.info/api?t=movie&cat=2000&group=0&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
-const PC_SEARCH_REQ           = "https://api.nzbgeek.info/api?t=search&cat=4000&group=0&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
-const ANIME_SEARCH_REQ        = "https://api.nzbgeek.info/api?t=tvsearch&cat=5070&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
-const TV_OFFSET_SEARCH_REQ    = "https://api.nzbgeek.info/api?t=tvsearch&cat=5000&limit=200&offset=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
-const BOOK_SEARCH_REQ         = "https://api.nzbgeek.info/api?t=book&cat=7000&group=0&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
-const MOVIE_OFFSET_SEARCH_REQ = "https://api.nzbgeek.info/api?t=movie&cat=2000&group=0&limit=200&offset=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
-const CONSOLE_SEARCH_REQ      = "https://api.nzbgeek.info/api?t=search&cat=1000&group=0&limit=200&o=json&apikey=dd69847b1b992cc62ffb62217dcd3119";
+const config    = require('./config.js');
 
-const FROM_PATH = "/var/www/nZEDb/resources/ripper/nzb-ripper/nzbs/*";
-const TO_PATH   = "/var/www/nZEDb/resources/imports/nzbs";
+///DO SOME CHECKS HERE
+//TODO(Demetry): Implement configuration checking here
 
-const UPDATE_TIMER = 600000; 
-
-let requests = { 
-    links: [
-        TV_SEARCH_REQ, 
-        MOVIE_SEARCH_REQ,
-        PC_SEARCH_REQ,
-        ANIME_SEARCH_REQ,
-        TV_OFFSET_SEARCH_REQ,
-        BOOK_SEARCH_REQ,
-        MOVIE_OFFSET_SEARCH_REQ,
-        CONSOLE_SEARCH_REQ
-
-    ]
+/**
+ * This function checks if we already have this nzb downloaded. 
+ * Just needs the name no extension
+ *
+ * @param nzb_name The name of the nzb to check
+ * @returns bool
+ **/
+function check_exists(nzb_name){
+    return fs.existsSync("nzbs/"+nzb_name+".nzb");
 }
 
+/**
+ * Just making javascript better one function at a time
+ * @param fn The function to execute
+ * @param t The time in ms
+ * @returns object
+ **/
 function setIntervalAndExecute(fn, t) { 
     fn();
     return (setInterval(fn, t));
 }
 
-//console.log(requests.links);
-setIntervalAndExecute(() => {
-    console.log("UPDATING: New");
-    for(var l = 0; l < requests.links.length; l++)
-    {
-        request(requests.links[l], { json: true }, (err, res, body) => {
-            if (err) 
-                return console.log(err); 
-            if (!body.channel.item)
-                return console.log("ERROR: Response was malformed.");
-
-            console.log("\n\n\n\n\nREQUEST: "+requests.links[l]);
-
-            let response_item = body.channel.item; 
-
-            for(var i = 0; i < response_item.length; i++) 
-            {
-                let nzb = response_item[i];
-
-                let title = nzb.title.replace(/ /g, "");
-                let link  = nzb.link.replace(/amp;/g, "");
-
-                if(!fs.existsSync("nzbs/"+title+".nzb"))
-                {
-                    console.log(title);
-                    console.log(link);
-
-                    let file = fs.createWriteStream("nzbs/"+title+".nzb");
-
-                    let request = https.get(link, (res) => { 
-                        res.pipe(file);
-                        console.log("Downloaded: " + title);
-                    }).on('error', (err) => { 
-                        console.log("Error Downloading: " + err);  
-                    });
-                }
-                else
-                {
-                    console.log("SKIPPING: " + title + ".nzb");
-                    continue;
-                }
-            } 
-        });
-    }
-
-    //Copy updates to the indexer
-    exec("cp " + FROM_PATH + " " + TO_PATH, (err, stdout, stderr) => { 
+/**
+ * Copy's all the files from the download folder to the indexer
+ * COPY_FROM_PATH
+ * COPY_TO_PATH 
+ * are used here.
+ **/
+function copy_nzbs_to_indexer(){
+    exec("cp " + config.FROM_PATH + " " + config.TO_PATH, (err, stdout, stderr) => { 
         if(err) { 
-            console.log("ERROR: Couldn't copy shit"); 
+            console.log("ERROR: Couldn't copy what you wanted"); 
             return; 
         }
 
         console.log('stdout: ${stdout}');
         console.log('stderr: ${stderr}');
     });
+}
 
-}, UPDATE_TIMER);
+///Going to use objects to store the different indexers
+var NzbGeek = { 
+    query: {
+        search_type: {
+            TV    : "tvsearch",
+            MOVIE : "movie",
+            SEARCH: "search",
+            BOOK  : "book"
+        },
+        
+        category: { 
+            TV: {
+                ALL: "5000",
+                ANIME: "5070"
+            },
+            MOVIE: { 
+                ALL: "2000"
+            },
+            PC: {
+                ALL: "4000"
+            },
+            CONSOLE: {
+                ALL: "1000"
+            },
+            BOOK: { 
+                ALL: "7000"
+            }
+        },
 
+        limit: "200"
+    },
 
-/**
-exec('tar -czvf nzb-dump.tar.gz nzbs', (err, stdout, stderr) => {
-    if (err) {
-        // node couldn't execute the command
-        console.log("ERROR: Node didnt want to tar shit up!");
-        return;
+    ///FUNCTIONS
+    
+    /**
+     * Query builder for NzbGeek
+     **/
+    query_builder: function(search_type, category) { 
+        return `${config.GEEK_API_URL}?t=${search_type}&cat=${category}&o=json&apikey=${config.GEEK_API_KEY}`;
+        //
+
+    },
+
+    /**
+     * Get all the titles from the query
+     *
+     * @param query The query to use
+     * @param cb Callback once complete
+     **/
+    get_all_titles: function(query, cb){
+        if(config.DEBUG)
+            console.log("DEBUG QUERY: " + query);
+
+        rp({ uri: query, json:true }).then((res) => {
+
+            if(!res.channel)
+            {
+                if(config.DEBUG)
+                    console.log("ERROR: Response error");
+                throw "Response Error";
+            }
+
+            let items = res.channel.item;
+            let ret = []; 
+
+            for(var i = 0; i < items.length; i++)
+            {
+                ret.push({
+                    title: items[i].title.replace(/ /g, ""),
+                    link: items[i].link.replace(/amp;/g, "")
+                });
+            }
+
+            cb(ret);
+        }).catch((err) => { 
+            if(config.DEBUG)
+                console.log(err);
+        });
+    },
+
+    /**
+     * Check if the nzb exists and if it does not download the nzb
+     *
+     * @param item The item object containing the title and link
+     * @param callback The callback once finished
+     **/
+    download_nzb: function(item, cb){
+        if(check_exists(item.title))
+            cb(false, item.title);
+
+        let file = fs.createWriteStream(`nzbs/${item.title}-RIPPER_BOT.nzb`);
+        let download = https.get(item.link, (res) => {
+            res.pipe(file);
+            
+            cb(true, item.title);
+        }).on('error', (err) => { 
+            if(config.VERBOSE)
+                console.log(`ERROR: ${err}`);
+            cb(false, item.title);
+        });
     }
+    
+}
 
-    // the *entire* stdout and stderr (buffered)
-    console.log(`stdout: ${stdout}`);
-    console.log(`stderr: ${stderr}`);
-});**/
+var AnizDB = {
+    /**
+     * Process titles from AnizB.org
+     *
+     * @param cb Callback
+     **/
+    process_titles: function(cb){
+
+        //This array holds all the titles and links
+        ret = [];
+
+        for(var i = config.ANIZ_DB_START_OFFSET; i < config.ANIZ_DB_MAX_OFFSET; i++)
+        {
+            let current_url = `${config.ANIZ_DB_URL}${i.toString()}00`;
+            
+            if(config.DEBUG)
+                console.log(current_url);
+
+            rp({uri: current_url}).then((html) => {
+                //if(config.DEBUG)
+                    //console.log(html);
+
+                
+
+                $('td', html).each((i, ele) => {
+                    for(var j = 0; j < ele.children.length; j++)
+                    {
+                        let tag = ele.children[j].next;
+                        if(tag) {
+                            if(tag.attribs) {
+                                if(tag.attribs.href) {
+                                    ret.push({title: "", link: `https://anizb.org/${tag.attribs.href}`});
+                                    //console.log(link);
+                                }
+                            }
+                        }
+                    }
+                    //console.log(ele.children[0].next.attribs);
+                });
+
+                cb(ret);
+            }).catch((err) => {
+                if(config.DEBUG)
+                    console.log(`ERROR: ${err}`);
+            });
+        }
+    },
+    
+    /**
+     * Download the title
+     *
+     * @param url The url of the item to download
+     * @param cb Callback the callback once completed
+     **/
+    download_title: function(url, cb){
+        // RegExp to extract the filename from Content-Disposition
+        var regexp = /filename=\"(.*)\"/gi;
+
+        // initiate the download
+        let req = request.get(url).on('response', function( res ){
+            let filename = res.headers['content-disposition'].replace(/attachment; filename=/g, "");
+
+            filename = filename.replace(/.nzb/g, "-RIPPER_BOT.nzb");
+            
+            //TODO(Demetry): Implement renaming regexes
+            if(filename.length > 50)
+                filename = `${filename.substr(0, 25)}-RIPPER_BOT.nzb`;
+
+            if(check_exists(filename.replace(/.nzb/g, "")))
+            {
+                cb(false, filename);
+                return; 
+            }
+
+            //let filename = regexp.exec(res.headers['content-disposition'])[1];
+            let fws = fs.createWriteStream(`nzbs/${filename}`);
+            res.pipe(fws);
+            res.on( 'end', function(){
+                cb(true, filename);
+            });
+            res.on('error', (err) => {
+                if(config.DEBUG)
+                    console.log(err);
+
+                cb(false, filename);
+            });
+        });
+    }
+}
+//"https://anizb.org/dl/54090/",
+AnizDB.process_titles((ret) => { 
+    
+    for(var i = 0; i < ret.length; i++){
+        //console.log(ret[i].link);
+        AnizDB.download_title(ret[i].link, (downloaded, filename) => { 
+            if(config.VERBOSE)
+            {
+                if(downloaded){
+                    console.log(`DOWNLOADED: ${filename}`); 
+
+                    copy_nzbs_to_indexer();
+                } else {
+                    console.log(`SKIPPED: ${filename}`);
+                }
+            }   
+        });
+    }
+});
+
+setIntervalAndExecute(() => {
+    
+    QUERIES = [
+        NzbGeek.query_builder(NzbGeek.query.search_type.SEARCH, NzbGeek.query.category.TV.ALL),
+        NzbGeek.query_builder(NzbGeek.query.search_type.SEARCH, NzbGeek.query.category.MOVIE.ALL)
+    ];
+
+    for(var i = 0; i < QUERIES.length; i++)
+    {
+        NzbGeek.get_all_titles(QUERIES[i], (res) => { 
+            for(var j = 0; j < res.length; j++)
+            {
+                if(config.DEBUG) console.log(`TITLE: ${res[j].title}`);
+
+                NzbGeek.download_nzb(res[i], (downloaded, title) => {
+                    if(downloaded) {
+                        if(config.VERBOSE){
+                            console.log(`DOWNLOADED: ${title}`);
+
+                            copy_nzbs_to_indexer();
+                        }
+                    } else {
+                        if(config.VERBOSE) console.log(`SKIPPED: ${title}`);
+                    }
+                });
+            }
+        });
+    }
+}, config.UPDATE_TIMER);
