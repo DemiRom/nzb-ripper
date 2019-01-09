@@ -271,7 +271,9 @@ AnizDB.process_titles((ret) => {
                 } else {
                     console.log(`SKIPPED: ${filename}`);
                 }
-            }   
+            }
+            if(downloaded)
+                console.log(`DOWNLOADED: ${filename}`);
         });
     }
 });
@@ -291,15 +293,21 @@ setIntervalAndExecute(() => {
                 if(config.DEBUG) console.log(`TITLE: ${res[j].title}`);
 
                 NzbGeek.download_nzb(res[i], (downloaded, title) => {
-                    if(downloaded) {
-                        if(config.VERBOSE){
+                    if(config.VERBOSE)
+                    {
+                        if(downloaded)
+                        {
                             console.log(`DOWNLOADED: ${title}`);
-
-                            //TODO(Demetry): Fix this
-                            //copy_nzbs_to_indexer();
                         }
-                    } else {
-                        if(config.VERBOSE) console.log(`SKIPPED: ${title}`);
+                        else
+                        {
+                            console.log(`SKIPPED: ${title}`);
+                        }
+                    }
+                    else
+                    {
+                        if(downloaded)
+                            console.log(`DOWNLOADED: ${title}`);
                     }
                 });
             }
