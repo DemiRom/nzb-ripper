@@ -8,6 +8,14 @@ const $         = require('cheerio');
 
 const config    = require('./config.js');
 
+if(config.DEBUG){
+    console.log("\n\n");
+    console.log("CONFIG");
+    console.log(config);
+    console.log("\n\n");
+}
+
+
 ///DO SOME CHECKS HERE
 //TODO(Demetry): Implement configuration checking here
 
@@ -40,14 +48,15 @@ function setIntervalAndExecute(fn, t) {
  * are used here.
  **/
 function copy_nzbs_to_indexer(){
-    exec("cp " + config.FROM_PATH + " " + config.TO_PATH, (err, stdout, stderr) => { 
+    exec(`cp ${config.FROM_PATH} ${config.TO_PATH}`, (err, stdout, stderr) => { 
         if(err) { 
-            console.log("ERROR: Couldn't copy what you wanted"); 
+            console.log(`FATAL ${err}`);
+            process.exit();
             return; 
         }
 
-        console.log('stdout: ${stdout}');
-        console.log('stderr: ${stderr}');
+        console.log(`stdout: ${stdout}`);
+        console.log(`stderr: ${stderr}`);
     });
 }
 
@@ -138,18 +147,20 @@ var NzbGeek = {
      * @param callback The callback once finished
      **/
     download_nzb: function(item, cb){
-        if(check_exists(item.title))
-            cb(false, item.title);
+        let title = `${item.title.substr(0, 50)}-RIPPER_BOT`;
+        
+        if(check_exists(title))
+            cb(false, title);
 
-        let file = fs.createWriteStream(`nzbs/${item.title}-RIPPER_BOT.nzb`);
+        let file = fs.createWriteStream(`nzbs/${title}.nzb`);
         let download = https.get(item.link, (res) => {
             res.pipe(file);
             
-            cb(true, item.title);
+            cb(true, title);
         }).on('error', (err) => { 
             if(config.VERBOSE)
                 console.log(`ERROR: ${err}`);
-            cb(false, item.title);
+            cb(false, title);
         });
     }
     
@@ -171,7 +182,7 @@ var AnizDB = {
             let current_url = `${config.ANIZ_DB_URL}${i.toString()}00`;
             
             if(config.DEBUG)
-                console.log(current_url);
+                console.log(`DEBUG URL: ${current_url}`);
 
             rp({uri: current_url}).then((html) => {
                 //if(config.DEBUG)
@@ -217,20 +228,19 @@ var AnizDB = {
         let req = request.get(url).on('response', function( res ){
             let filename = res.headers['content-disposition'].replace(/attachment; filename=/g, "");
 
-            filename = filename.replace(/.nzb/g, "-RIPPER_BOT.nzb");
+            filename = filename.replace(/.nzb/g, "");
             
             //TODO(Demetry): Implement renaming regexes
-            if(filename.length > 50)
-                filename = `${filename.substr(0, 25)}-RIPPER_BOT.nzb`;
+            filename = `${filename.substr(0, 50)}-RIPPER_BOT`;
 
-            if(check_exists(filename.replace(/.nzb/g, "")))
+            if(check_exists(filename))
             {
                 cb(false, filename);
                 return; 
             }
 
             //let filename = regexp.exec(res.headers['content-disposition'])[1];
-            let fws = fs.createWriteStream(`nzbs/${filename}`);
+            let fws = fs.createWriteStream(`nzbs/${filename}.nzb`);
             res.pipe(fws);
             res.on( 'end', function(){
                 cb(true, filename);
@@ -255,7 +265,9 @@ AnizDB.process_titles((ret) => {
                 if(downloaded){
                     console.log(`DOWNLOADED: ${filename}`); 
 
-                    copy_nzbs_to_indexer();
+                    //TODO(Demetry): Fix this
+                    //copy_nzbs_to_indexer();
+
                 } else {
                     console.log(`SKIPPED: ${filename}`);
                 }
@@ -283,7 +295,8 @@ setIntervalAndExecute(() => {
                         if(config.VERBOSE){
                             console.log(`DOWNLOADED: ${title}`);
 
-                            copy_nzbs_to_indexer();
+                            //TODO(Demetry): Fix this
+                            //copy_nzbs_to_indexer();
                         }
                     } else {
                         if(config.VERBOSE) console.log(`SKIPPED: ${title}`);
@@ -292,4 +305,8 @@ setIntervalAndExecute(() => {
             }
         });
     }
+}, config.UPDATE_TIMER);
+
+setIntervalAndExecute(() => { 
+    copy_nzbs_to_indexer();
 }, config.UPDATE_TIMER);
